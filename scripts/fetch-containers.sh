@@ -73,7 +73,7 @@ fetch_container() {
 
     # Use skopeo to fetch as docker archive
     skopeo copy \
-        --override-arch "${arch}" \
+        --override-arch "${skopeo_arch}" \
         "docker://${image}" \
         "oci-archive:${output_file}:${image}"
 
