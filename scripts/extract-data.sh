@@ -46,11 +46,8 @@ extract_original_files() {
 }
 
 main() {
-    # shellcheck disable=SC1090
-    source "$(get_original_settings_path)"
-
     local data_image
-    data_image="$(get_partition_image_path "$DATA_PARTITION_NUM")"
+    data_image="$(get_partition_image_path "hassos-data")"
 
     require_file "$data_image"
 

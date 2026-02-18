@@ -294,8 +294,13 @@ main() {
     # Shrink partition to minimum size
     shrink_partition
 
-    log "New data partition created: $(get_new_data_image_path)"
-    log "Final size: $(du -h "$(get_new_data_image_path)" | cut -f1)"
+    # Move to label-based path for genimage
+    local final_path
+    final_path="$(get_partition_image_path "hassos-data")"
+    mv "$(get_new_data_image_path)" "$final_path"
+
+    log "New data partition created: $final_path"
+    log "Final size: $(du -h "$final_path" | cut -f1)"
 }
 
 # Entry point

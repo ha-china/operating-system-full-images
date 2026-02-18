@@ -36,16 +36,16 @@ get_disk_image_path() {
 }
 
 get_partition_image_path() {
-    local partnum="$1"
-    echo "${WORK_DIR}/part${partnum}.img"
+    local label="$1"
+    echo "${WORK_DIR}/${label}.img"
+}
+
+get_spl_image_path() {
+    echo "${WORK_DIR}/spl.img"
 }
 
 get_partition_table_json_path() {
     echo "${WORK_DIR}/partition_table.json"
-}
-
-get_partition_table_dump_path() {
-    echo "${WORK_DIR}/partition_table.dump"
 }
 
 get_original_directory_path() {
@@ -224,6 +224,57 @@ is_vm_board() {
             ;;
         *)
             return 1
+            ;;
+    esac
+}
+
+# Get SPL (Secondary Program Loader) size in bytes for a board, 0 if none
+get_spl_size() {
+    local board="$1"
+    case "$board" in
+        khadas-vim3|odroid-c2|odroid-c4|odroid-n2)
+            echo "8388608"   # 8M
+            ;;
+        green|odroid-m1|odroid-m1s)
+            echo "16777216"  # 16M
+            ;;
+        *)
+            echo "0"
+            ;;
+    esac
+}
+
+# MBR partition index to label (0-based, matching sfdisk JSON order)
+get_mbr_partition_label() {
+    local index="$1"
+    case "$index" in
+        0) echo "hassos-boot" ;;
+        # 1 is the extended partition container
+        2) echo "hassos-overlay" ;;
+        3) echo "hassos-data" ;;
+        4) echo "hassos-kernel0" ;;
+        5) echo "hassos-system0" ;;
+        6) echo "hassos-kernel1" ;;
+        7) echo "hassos-system1" ;;
+        8) echo "hassos-bootstate" ;;
+        *) ;;
+    esac
+}
+
+get_partition_table_type() {
+    local board="$1"
+    case "$board" in
+        generic-aarch64|generic-x86-64|ova|rpi5-64)
+            echo "gpt"
+            ;;
+        green|rpi3-64|rpi4-64|odroid-m1|odroid-m1s|yellow)
+            echo "hybrid"
+            ;;
+        khadas-vim3|odroid-c2|odroid-c4|odroid-n2)
+            echo "mbr"
+            ;;
+        *)
+            die "Unknown partition table type for board: $board"
             ;;
     esac
 }

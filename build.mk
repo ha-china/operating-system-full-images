@@ -73,7 +73,7 @@ _build-image:
 	@# Extract image and analyze partitions
 	$(SCRIPT_DIR)/analyze.sh "$(IMAGE)"
 	@# Split partitions
-	$(SCRIPT_DIR)/split.sh
+	$(SCRIPT_DIR)/split.sh "$(BOARD)"
 	@# Extract data partition contents
 	$(SCRIPT_DIR)/extract-data.sh
 	@# Fetch containers
@@ -107,10 +107,16 @@ endif
 	$(SCRIPT_DIR)/extract-data.sh "$(IMAGE)"
 
 analyze:
+ifndef IMAGE
+	$(error IMAGE is required)
+endif
 	$(SCRIPT_DIR)/analyze.sh "$(IMAGE)"
 
 split:
-	$(SCRIPT_DIR)/split.sh
+ifndef BOARD
+	$(error BOARD is required)
+endif
+	$(SCRIPT_DIR)/split.sh "$(BOARD)"
 
 extract-data:
 	$(SCRIPT_DIR)/extract-data.sh

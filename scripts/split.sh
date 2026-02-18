@@ -1,6 +1,6 @@
 #!/bin/bash
 # scripts/split.sh - Split partitions
-# Split OS image into images of individual partitions
+# Split OS image into images of individual partitions by label
 
 set -euo pipefail
 
@@ -10,26 +10,38 @@ source "${SCRIPT_DIR}/lib.sh"
 
 register_cleanup
 
-extract_partition() {
+# Partitions to extract (everything else is skipped)
+KEEP_PARTITIONS="hassos-boot hassos-kernel0 hassos-system0 hassos-overlay hassos-data"
+
+get_partition_label() {
+    local partition_table="$1"
+    local index="$2"
+    local partition_table_type="$3"
+
+    if [ "$partition_table_type" != "mbr" ]; then
+        # GPT/hybrid: use the name field directly
+        jq -r ".partitiontable.partitions[$index].name // \"\"" "$partition_table"
+        return
+    fi
+
+    # MBR has no partition name field; use fixed index mapping
+    get_mbr_partition_label "$index"
+}
+
+extract_partition_to() {
     local disk_image="$1"
     local partition_table="$2"
     local index="$3"
     local sector_size="$4"
+    local output_file="$5"
 
-    # Get partition info from JSON
-    local start size name
+    local start size
     start=$(jq -r ".partitiontable.partitions[$index].start" "$partition_table")
     size=$(jq -r ".partitiontable.partitions[$index].size" "$partition_table")
-    name=$(jq -r ".partitiontable.partitions[$index].name // \"part$((index + 1))\"" "$partition_table")
-
-    local partnum=$((index + 1))
-    local output_file
-    output_file=$(get_partition_image_path "$partnum")
 
     local bytes=$((size * sector_size))
-    log "Extracting partition $partnum ($name): $(bytes_to_human "$bytes")"
+    log "Extracting partition index $index: $(bytes_to_human "$bytes") -> $(basename "$output_file")"
 
-    # Use dd to extract partition
     dd if="$disk_image" of="$output_file" \
         bs="$sector_size" \
         skip="$start" \
@@ -37,38 +49,31 @@ extract_partition() {
         status=progress 2>&1 | tail -1
 }
 
-identify_data_partition() {
-    log "Identifying hassos-data partition..."
+extract_spl() {
+    local disk_image="$1"
+    local board="$2"
 
-    local found=false
+    local spl_size
+    spl_size=$(get_spl_size "$board")
 
-    for part in "${WORK_DIR}"/part*.img; do
-        [ -f "$part" ] || continue
-
-        # Try to get filesystem label using blkid
-        local label
-        label=$(blkid -o value -s LABEL "$part" 2>/dev/null || echo "")
-
-        if [ "$label" = "hassos-data" ]; then
-            local partnum
-            partnum=$(basename "$part" | grep -oE '[0-9]+')
-
-            log "Found hassos-data partition: part${partnum}.img"
-
-            # Save data partition number
-            echo "DATA_PARTITION_NUM=$partnum" >> "$(get_original_settings_path)"
-
-            found=true
-            break
-        fi
-    done
-
-    if [ "$found" = false ]; then
-        die "Could not find hassos-data partition"
+    if [ "$spl_size" -eq 0 ]; then
+        log "No SPL size defined for board $board, skipping SPL extraction"
+        return
     fi
+
+    local spl_image
+    spl_image="$(get_spl_image_path)"
+    local spl_blocks=$(( spl_size / 1048576 ))
+
+    log "Extracting SPL blob: ${spl_blocks}M"
+    dd if="$disk_image" of="$spl_image" bs=1M count="$spl_blocks" status=none
+
+    log "SPL extracted to: $spl_image"
 }
 
 main() {
+    local board="$1"
+
     local disk_image partition_table
     disk_image="$(get_disk_image_path)"
     partition_table="$(get_partition_table_json_path)"
@@ -76,27 +81,45 @@ main() {
     require_file "$disk_image"
     require_file "$partition_table"
 
-    log "Splitting partitions..."
+    local partition_table_type
+    partition_table_type=$(get_partition_table_type "$board")
 
-    # Get sector size
+    log "Splitting partitions (board=$board, type=$partition_table_type)..."
+
     local sector_size
     sector_size=$(jq -r '.partitiontable.sectorsize' "$partition_table")
 
-    # Get number of partitions
     local num_partitions
     num_partitions=$(jq '.partitiontable.partitions | length' "$partition_table")
 
     log "Found $num_partitions partitions (sector size: $sector_size)"
 
-    # Extract each partition
+    # Extract each partition by label
     for i in $(seq 0 $((num_partitions - 1))); do
-        extract_partition "$disk_image" "$partition_table" "$i" "$sector_size"
+        local label
+        label=$(get_partition_label "$partition_table" "$i" "$partition_table_type")
+
+        if [[ " $KEEP_PARTITIONS " != *" $label "* ]]; then
+            log "Skipping partition index $i (${label:-unlabeled})"
+            continue
+        fi
+
+        extract_partition_to "$disk_image" "$partition_table" "$i" "$sector_size" \
+            "$(get_partition_image_path "$label")"
     done
 
-    # Identify and link hassos-data partition
-    identify_data_partition
+    # Extract SPL blob if present
+    extract_spl "$disk_image" "$board"
+
+    # Delete disk image to free space
+    log "Removing decompressed disk image to free space..."
+    rm -f "$disk_image"
 
     log "Partition splitting complete"
 }
 
-main
+if [ $# -lt 1 ]; then
+    die "Usage: $0 <board>"
+fi
+
+main "$1"
