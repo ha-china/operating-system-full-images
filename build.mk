@@ -19,7 +19,7 @@ CHANNEL ?= stable
 # Find input images
 INPUT_IMAGES := $(wildcard $(INPUT_DIR)/haos_*.img.xz $(INPUT_DIR)/haos_*.qcow2.xz)
 
-.PHONY: help build build-all fetch-containers clean clean-all extract analyze split extract-data create-data reassemble
+.PHONY: help build build-all fetch-containers clean clean-all extract prepare analyze split extract-data create-data reassemble
 
 # Default target
 help:
@@ -70,8 +70,10 @@ _build-image:
 	@# Clean work directory for fresh build
 	@rm -rf "$(WORK_DIR)"/*
 	@mkdir -p "$(WORK_DIR)/original"
-	@# Extract image and analyze partitions
-	$(SCRIPT_DIR)/analyze.sh "$(IMAGE)"
+	@# Prepare image and analyze partitions
+	$(SCRIPT_DIR)/prepare.sh "$(IMAGE)"
+	@# Analyze partitions
+	$(SCRIPT_DIR)/analyze.sh
 	@# Split partitions
 	$(SCRIPT_DIR)/split.sh "$(BOARD)"
 	@# Extract data partition contents
@@ -106,11 +108,14 @@ ifndef IMAGE
 endif
 	$(SCRIPT_DIR)/extract-data.sh "$(IMAGE)"
 
-analyze:
+prepare:
 ifndef IMAGE
 	$(error IMAGE is required)
 endif
-	$(SCRIPT_DIR)/analyze.sh "$(IMAGE)"
+	$(SCRIPT_DIR)/prepare.sh "$(IMAGE)"
+
+analyze:
+	$(SCRIPT_DIR)/analyze.sh
 
 split:
 ifndef BOARD
