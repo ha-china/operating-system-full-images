@@ -44,11 +44,8 @@ fetch_container() {
     local image
     image=$(get_container_image "$versions_file" "$name")
 
-    # skopeo uses "arm64" instead of "aarch64"
-    local skopeo_arch="${arch}"
-    if [ "${skopeo_arch}" = "aarch64" ]; then
-        skopeo_arch="arm64"
-    fi
+    local docker_arch
+    docker_arch=$(get_docker_arch "$arch")
 
     # Check if already downloaded (match by image name prefix)
     local image_prefix="${image//[:\/]/_}"
@@ -61,7 +58,7 @@ fetch_container() {
 
     # Get image digest
     local digest
-    digest=$(skopeo inspect --override-arch "${skopeo_arch}" "docker://${image}" | jq -r '.Digest')
+    digest=$(skopeo inspect --override-arch "${docker_arch}" "docker://${image}" | jq -r '.Digest')
     if [ -z "$digest" ] || [ "$digest" = "null" ]; then
         die "Failed to get digest for $image"
     fi
@@ -73,7 +70,7 @@ fetch_container() {
 
     # Use skopeo to fetch as docker archive
     skopeo copy \
-        --override-arch "${skopeo_arch}" \
+        --override-arch "${docker_arch}" \
         "docker://${image}" \
         "oci-archive:${output_file}:${image}"
 

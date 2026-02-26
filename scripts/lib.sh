@@ -188,6 +188,19 @@ get_arch() {
     esac
 }
 
+# Convert HAOS architecture names to Docker/OCI/Go architecture names
+get_docker_arch() {
+    local arch="$1"
+    case "$arch" in
+        aarch64)
+            echo "arm64"
+            ;;
+        *)
+            echo "$arch"
+            ;;
+    esac
+}
+
 get_machine() {
     local board="$1"
     case "$board" in
