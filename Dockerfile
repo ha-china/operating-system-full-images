@@ -22,7 +22,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     skopeo \
     util-linux \
     xz-utils \
-    zerofree \
     zip \
     && rm -rf /var/lib/apt/lists/*
 

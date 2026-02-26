@@ -207,16 +207,6 @@ shrink_partition() {
 
     log "Shrinking partition to minimum size..."
 
-#    # Zero out free space for better compression
-#    log "Zeroing free space..."
-#    # Create a file that fills free space with zeros, then delete it
-#    dd if=/dev/zero of="${new_data}/.zerofill" bs=1M 2>/dev/null || true
-#    rm -f "${new_data}/.zerofill"
-
-    # Run zerofree for more thorough zeroing
-    log "Running zerofree..."
-    zerofree -v "$new_image"
-
     # Check filesystem
     log "Checking filesystem..."
     e2fsck -f -y "$new_image"
