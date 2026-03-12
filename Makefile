@@ -37,7 +37,7 @@ help:
 	@echo "  CHANNEL=<channel>  Version channel: stable, beta, dev (default: stable)"
 
 docker-image:
-	docker build -t $(IMAGE_NAME) .
+	docker build -t $(IMAGE_NAME) $(if $(DIND_IMAGE),--build-arg DIND_IMAGE=$(DIND_IMAGE)) .
 
 build:
 ifndef IMAGE

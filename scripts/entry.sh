@@ -14,6 +14,17 @@ while ! docker version &> /dev/null; do
 done
 echo "Docker daemon ready"
 
+# Load pre-fetched dind image if it matches the requested version
+DIND_IMAGE="${DIND_IMAGE:-docker:dind}"
+BAKED_DIND_IMAGE=$(cat /opt/haos-builder/dind.image 2>/dev/null || true)
+if [ -f /opt/haos-builder/dind.oci.tar ] && [ "${DIND_IMAGE}" = "${BAKED_DIND_IMAGE}" ]; then
+    echo "Loading pre-fetched dind image..."
+    skopeo copy oci-archive:/opt/haos-builder/dind.oci.tar "docker-daemon:${DIND_IMAGE}"
+    echo "dind image loaded"
+elif [ "${DIND_IMAGE}" != "${BAKED_DIND_IMAGE}" ]; then
+    echo "Requested dind image '${DIND_IMAGE}' differs from pre-fetched '${BAKED_DIND_IMAGE}', will pull at runtime"
+fi
+
 # Run make with all arguments
 make "$@"
 exit_code=$?

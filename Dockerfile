@@ -49,6 +49,12 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io \
     && rm -rf /var/lib/apt/lists/*
 
+# Pre-fetch Docker-in-Docker image as OCI archive
+ARG DIND_IMAGE=docker:dind
+RUN mkdir -p /opt/haos-builder && \
+    skopeo copy "docker://${DIND_IMAGE}" "oci-archive:/opt/haos-builder/dind.oci.tar" && \
+    echo "${DIND_IMAGE}" > /opt/haos-builder/dind.image
+
 # Create work directories
 RUN mkdir -p /work /input /output /cache
 
