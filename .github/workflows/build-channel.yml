@@ -35,7 +35,7 @@ jobs:
         run: |
           echo "::group::Generate build matrix for channel=${CHANNEL}"
           version_file="version-${CHANNEL}.json"
-          curl -fsSL "https://version.home-assistant.io/${CHANNEL}.json" -o "$version_file"
+          curl -fsSL "https://version.hasscn.top/${CHANNEL}.json" -o "$version_file"
 
           matrix_json="$(jq -c --arg os_name "haos" '
             [
