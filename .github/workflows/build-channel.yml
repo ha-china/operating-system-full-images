@@ -261,10 +261,14 @@ jobs:
             prerelease_args+=(--prerelease)
           fi
 
+          cat > release-notes.txt <<EOF
+          Channel: $CHANNEL
+          Build date (UTC): $BUILD_DATE
+
+          Automated build for Home Assistant OS full images.
+          EOF
+
           gh release create "$RELEASE_TAG" release-assets/* \
             --title "$RELEASE_NAME" \
-            --notes "Channel: $CHANNEL
-Build date (UTC): $BUILD_DATE
-
-Automated build for Home Assistant OS full images." \
+            --notes-file release-notes.txt \
             "${prerelease_args[@]}"
