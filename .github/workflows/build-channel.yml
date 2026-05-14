@@ -222,6 +222,7 @@ jobs:
   release:
     name: Create GitHub release
     runs-on: ubuntu-latest
+    if: ${{ always() && needs.resolve-matrix.result == 'success' }}
     needs:
       - resolve-matrix
       - build
@@ -236,18 +237,27 @@ jobs:
           path: release-assets
 
       - name: Verify release assets
+        id: assets
         run: |
           shopt -s nullglob
           assets=(release-assets/*)
 
           if [ "${#assets[@]}" -eq 0 ]; then
-            echo "::error::No release assets were downloaded"
-            exit 1
+            echo "has_assets=false" >> "$GITHUB_OUTPUT"
+            echo "No release assets were downloaded"
+            exit 0
           fi
+
+          echo "has_assets=true" >> "$GITHUB_OUTPUT"
 
           ls -lh release-assets
 
+      - name: Skip release when no assets were built
+        if: steps.assets.outputs.has_assets != 'true'
+        run: echo "Skipping GitHub release because no build artifacts were produced"
+
       - name: Create GitHub release
+        if: steps.assets.outputs.has_assets == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.resolve-matrix.outputs.release_tag }}
