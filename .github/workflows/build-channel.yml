@@ -151,7 +151,7 @@ jobs:
         run: |
           prefix="output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${BUILD_DATE}"
           found=0
-          for ext in img.xz qcow2.xz vmdk.xz vdi.xz vhdx.xz ova; do
+          for ext in img.xz qcow2.xz vmdk.zip vdi.zip vhdx.zip ova; do
             key="${ext%%.*}"
             if [ -f "${prefix}.${ext}" ]; then
               echo "has_${key}=true" >> "$GITHUB_OUTPUT"
@@ -189,7 +189,7 @@ jobs:
         with:
           archive: false
           name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vmdk.xz
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vmdk.zip
           if-no-files-found: error
 
       - name: Upload VDI image
@@ -198,7 +198,7 @@ jobs:
         with:
           archive: false
           name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vdi.xz
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vdi.zip
           if-no-files-found: error
 
       - name: Upload VHDX image
@@ -207,7 +207,7 @@ jobs:
         with:
           archive: false
           name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vhdx.xz
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vhdx.zip
           if-no-files-found: error
 
       - name: Upload OVA image

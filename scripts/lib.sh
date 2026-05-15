@@ -232,7 +232,7 @@ get_machine() {
 is_vm_board() {
     local board="$1"
     case "$board" in
-        ova|generic-aarch64)
+        ova|generic-aarch64|generic-x86-64)
             return 0
             ;;
         *)
