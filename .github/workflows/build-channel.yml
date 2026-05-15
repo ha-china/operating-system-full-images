@@ -314,4 +314,9 @@ jobs:
           fi
 
           ls -lh "${assets[@]}"
-          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          for asset in "${assets[@]}"; do
+            asset_name="$(basename "$asset")"
+            echo "Uploading release asset: ${asset_name}"
+            gh release upload "$RELEASE_TAG" "$asset" --clobber
+            echo "Finished release asset: ${asset_name}"
+          done
