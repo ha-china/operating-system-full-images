@@ -176,6 +176,30 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Free disk space
+        run: |
+          echo "正在释放磁盘空间，请稍候..."
+          echo "删除 Android 相关文件..."
+          sudo rm -rf /usr/local/lib/android
+          echo "删除 GHC 相关文件..."
+          sudo rm -rf /opt/ghc
+          echo "清理 apt 缓存列表..."
+          sudo rm -rf /var/lib/apt/lists/*
+          echo "清理 apt 包缓存..."
+          sudo rm -rf /var/cache/apt/archives/*
+          echo "清理 debconf 旧缓存..."
+          sudo rm -rf /var/cache/debconf/*-old
+          echo "删除 CodeQL 工具..."
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          echo "执行 apt clean..."
+          sudo apt clean
+          echo "删除第三方 apt 源列表..."
+          sudo rm -rf /etc/apt/sources.list.d/*
+          echo "删除 Boost 库..."
+          sudo rm -rf "/usr/local/share/boost"
+          echo "磁盘空间释放完成！"
+          sudo mkdir -p /mnt/cache /mnt/output
+
       - name: Download HAOS input image
         run: |
           mkdir -p input
