@@ -29,7 +29,10 @@ fetch_versions() {
             images: (.images | to_entries | map(
                 # API uses "core" for what we call "homeassistant"
                 {key: (if .key == "core" then "homeassistant" else .key end),
-                 value: (.value | gsub("\\{arch\\}"; $arch) | gsub("\\{machine\\}"; $machine))}
+                 value: (.value
+                    | gsub("ghcr\\.hasscn\\.top"; "ghcr.io")
+                    | gsub("\\{arch\\}"; $arch)
+                    | gsub("\\{machine\\}"; $machine))}
             ) | from_entries)
         }'
 }

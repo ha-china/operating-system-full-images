@@ -63,6 +63,7 @@ jobs:
               | to_entries[]                              # Iterate board/version pairs
               | .key as $board
               | .value as $version
+              | select((($board | startswith("odroid-")) or ($board | startswith("khadas-"))) | not)
               | (                                       # Get image URL from ota template, replacing placeholders
                   $root.ota
                   | gsub("\\{os_name\\}"; $os_name)     # Replace {os_name}
