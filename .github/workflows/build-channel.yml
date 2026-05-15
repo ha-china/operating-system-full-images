@@ -23,6 +23,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       build_date: ${{ steps.date.outputs.build_date }}
+      release_version: ${{ steps.release.outputs.release_version }}
       release_tag: ${{ steps.release.outputs.release_tag }}
       release_name: ${{ steps.release.outputs.release_name }}
       prerelease: ${{ steps.release.outputs.prerelease }}
@@ -31,15 +32,23 @@ jobs:
         id: date
         run: echo "build_date=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
+      - name: Download channel version metadata
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          curl -fsSL "https://version.hasscn.top/${CHANNEL}.json" -o "version-${CHANNEL}.json"
+
       - name: Compute release metadata
         id: release
         env:
           CHANNEL: ${{ inputs.channel }}
-          BUILD_DATE: ${{ steps.date.outputs.build_date }}
-          RUN_ID: ${{ github.run_id }}
+          VERSION_FILE: version-${{ inputs.channel }}.json
         run: |
-          echo "release_tag=${CHANNEL}-${BUILD_DATE}-${RUN_ID}" >> "$GITHUB_OUTPUT"
-          echo "release_name=HAOS ${CHANNEL} full images ${BUILD_DATE}" >> "$GITHUB_OUTPUT"
+          release_version=$(jq -r '[.hassos | to_entries[] | .value] | unique | join("+")' "$VERSION_FILE")
+
+          echo "release_version=${release_version}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${CHANNEL}-${release_version}" >> "$GITHUB_OUTPUT"
+          echo "release_name=HAOS ${CHANNEL} full images - ${release_version}" >> "$GITHUB_OUTPUT"
 
           if [ "$CHANNEL" = "stable" ]; then
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
@@ -54,7 +63,6 @@ jobs:
         run: |
           echo "::group::Generate build matrix for channel=${CHANNEL}"
           version_file="version-${CHANNEL}.json"
-          curl -fsSL "https://version.hasscn.top/${CHANNEL}.json" -o "$version_file"
 
           matrix_json="$(jq -c --arg os_name "haos" '
             [
@@ -113,6 +121,7 @@ jobs:
           RELEASE_TAG: ${{ needs.resolve-matrix.outputs.release_tag }}
           RELEASE_NAME: ${{ needs.resolve-matrix.outputs.release_name }}
           CHANNEL: ${{ inputs.channel }}
+          RELEASE_VERSION: ${{ needs.resolve-matrix.outputs.release_version }}
           BUILD_DATE: ${{ needs.resolve-matrix.outputs.build_date }}
           PRERELEASE: ${{ needs.resolve-matrix.outputs.prerelease }}
         run: |
@@ -123,15 +132,31 @@ jobs:
 
           cat > release-notes.txt <<EOF
           Channel: $CHANNEL
+          Version: $RELEASE_VERSION
           Build date (UTC): $BUILD_DATE
 
           Automated build for Home Assistant OS full images.
           EOF
 
-          gh release create "$RELEASE_TAG" \
-            --title "$RELEASE_NAME" \
-            --notes-file release-notes.txt \
-            "${prerelease_args[@]}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --title "$RELEASE_NAME" \
+              --notes-file release-notes.txt \
+              "${prerelease_args[@]}"
+
+            asset_names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+            if [ -n "$asset_names" ]; then
+              while IFS= read -r asset_name; do
+                [ -n "$asset_name" ] || continue
+                gh release delete-asset "$RELEASE_TAG" "$asset_name" --yes
+              done <<< "$asset_names"
+            fi
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "$RELEASE_NAME" \
+              --notes-file release-notes.txt \
+              "${prerelease_args[@]}"
+          fi
 
   build:
     name: Build images for ${{ matrix.board }} version ${{ matrix.version }}
