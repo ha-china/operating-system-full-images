@@ -29,10 +29,7 @@ fetch_versions() {
             images: (.images | to_entries | map(
                 # API uses "core" for what we call "homeassistant"
                 {key: (if .key == "core" then "homeassistant" else .key end),
-                 value: (.value
-                    | gsub("ghcr\\.hasscn\\.top"; "ghcr.io")
-                    | gsub("\\{arch\\}"; $arch)
-                    | gsub("\\{machine\\}"; $machine))}
+                 value: (.value | gsub("\\{arch\\}"; $arch) | gsub("\\{machine\\}"; $machine))}
             ) | from_entries)
         }'
 }
@@ -47,6 +44,11 @@ fetch_container() {
     local image
     image=$(get_container_image "$versions_file" "$name")
 
+    # Pull from upstream GHCR in GitHub-hosted runners, but keep the mirrored
+    # image reference in cached metadata so the sealed system points to hasscn.
+    local pull_image
+    pull_image=$(echo "$image" | sed 's#^ghcr\.hasscn\.top/#ghcr.io/#')
+
     local docker_arch
     docker_arch=$(get_docker_arch "$arch")
 
@@ -57,13 +59,13 @@ fetch_container() {
         return 0
     fi
 
-    log "Fetching Docker image: $image"
+    log "Fetching Docker image: $pull_image"
 
     # Get image digest
     local digest
-    digest=$(skopeo inspect --override-arch "${docker_arch}" "docker://${image}" | jq -r '.Digest')
+    digest=$(skopeo inspect --override-arch "${docker_arch}" "docker://${pull_image}" | jq -r '.Digest')
     if [ -z "$digest" ] || [ "$digest" = "null" ]; then
-        die "Failed to get digest for $image"
+        die "Failed to get digest for $pull_image"
     fi
 
     log "Digest: $digest"
@@ -74,7 +76,7 @@ fetch_container() {
     # Use skopeo to fetch as docker archive
     skopeo copy \
         --override-arch "${docker_arch}" \
-        "docker://${image}" \
+        "docker://${pull_image}" \
         "oci-archive:${output_file}:${image}"
 
     local size
