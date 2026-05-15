@@ -51,4 +51,4 @@ make shell
 
 Latest supervisor, homeassistant, dns, audio, cli, multicast, observer
 
-Versions fetched from `version.home-assistant.io` based on `CHANNEL` (default: `stable`).
+Versions fetched from `version.hasscn.top` based on `CHANNEL` (default: `stable`).

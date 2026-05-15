@@ -7,7 +7,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 # Configurable variables with defaults
-VERSION_ENDPOINT="${VERSION_ENDPOINT:-https://version.home-assistant.io}"
+VERSION_ENDPOINT="${VERSION_ENDPOINT:-https://version.hasscn.top}"
 CHANNEL="${CHANNEL:-stable}"
 CONTAINERS="${CONTAINERS:-supervisor homeassistant dns audio cli multicast observer}"
 WORK_DIR="${WORK_DIR:-/work}"

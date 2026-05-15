@@ -179,7 +179,7 @@ configure_supervisor() {
     cat "$ha_config"
 
     # Setup AppArmor
-    APPARMOR_URL="https://version.home-assistant.io/apparmor_${channel}.txt"
+    APPARMOR_URL="https://version.hasscn.top/apparmor_${channel}.txt"
     mkdir -p "${new_data}/supervisor/apparmor"
     curl -fsL -o "${new_data}/supervisor/apparmor/hassio-supervisor" "${APPARMOR_URL}"
 
