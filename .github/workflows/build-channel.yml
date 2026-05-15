@@ -94,12 +94,47 @@ jobs:
           jq . <<< "$matrix_json"
           echo "::endgroup::"
 
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs: resolve-matrix
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-matrix.outputs.release_tag }}
+          RELEASE_NAME: ${{ needs.resolve-matrix.outputs.release_name }}
+          CHANNEL: ${{ inputs.channel }}
+          BUILD_DATE: ${{ needs.resolve-matrix.outputs.build_date }}
+          PRERELEASE: ${{ needs.resolve-matrix.outputs.prerelease }}
+        run: |
+          prerelease_args=()
+          if [ "$PRERELEASE" = "true" ]; then
+            prerelease_args+=(--prerelease)
+          fi
+
+          cat > release-notes.txt <<EOF
+          Channel: $CHANNEL
+          Build date (UTC): $BUILD_DATE
+
+          Automated build for Home Assistant OS full images.
+          EOF
+
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_NAME" \
+            --notes-file release-notes.txt \
+            "${prerelease_args[@]}"
+
   build:
     name: Build images for ${{ matrix.board }} version ${{ matrix.version }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-    needs: resolve-matrix
+      contents: write
+    needs:
+      - resolve-matrix
+      - create-release
     strategy:
       fail-fast: false
       matrix:
@@ -219,66 +254,19 @@ jobs:
           path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.ova
           if-no-files-found: error
 
-  release:
-    name: Create GitHub release
-    runs-on: ubuntu-latest
-    if: ${{ always() && needs.resolve-matrix.result == 'success' }}
-    needs:
-      - resolve-matrix
-      - build
-    permissions:
-      contents: write
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v5.0.0
-        with:
-          pattern: haos-*
-          merge-multiple: true
-          path: release-assets
-
-      - name: Verify release assets
-        id: assets
-        run: |
-          shopt -s nullglob
-          assets=(release-assets/*)
-
-          if [ "${#assets[@]}" -eq 0 ]; then
-            echo "has_assets=false" >> "$GITHUB_OUTPUT"
-            echo "No release assets were downloaded"
-            exit 0
-          fi
-
-          echo "has_assets=true" >> "$GITHUB_OUTPUT"
-
-          ls -lh release-assets
-
-      - name: Skip release when no assets were built
-        if: steps.assets.outputs.has_assets != 'true'
-        run: echo "Skipping GitHub release because no build artifacts were produced"
-
-      - name: Create GitHub release
-        if: steps.assets.outputs.has_assets == 'true'
+      - name: Upload successful outputs to GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.resolve-matrix.outputs.release_tag }}
-          RELEASE_NAME: ${{ needs.resolve-matrix.outputs.release_name }}
-          CHANNEL: ${{ inputs.channel }}
           BUILD_DATE: ${{ needs.resolve-matrix.outputs.build_date }}
-          PRERELEASE: ${{ needs.resolve-matrix.outputs.prerelease }}
         run: |
-          prerelease_args=()
-          if [ "$PRERELEASE" = "true" ]; then
-            prerelease_args+=(--prerelease)
+          shopt -s nullglob
+          assets=(output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${BUILD_DATE}.*)
+
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets found for board=${{ matrix.board }} version=${{ matrix.version }}"
+            exit 0
           fi
 
-          cat > release-notes.txt <<EOF
-          Channel: $CHANNEL
-          Build date (UTC): $BUILD_DATE
-
-          Automated build for Home Assistant OS full images.
-          EOF
-
-          gh release create "$RELEASE_TAG" release-assets/* \
-            --title "$RELEASE_NAME" \
-            --notes-file release-notes.txt \
-            "${prerelease_args[@]}"
+          ls -lh "${assets[@]}"
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
