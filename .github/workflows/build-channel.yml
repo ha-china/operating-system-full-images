@@ -92,11 +92,9 @@ jobs:
       - name: Print release metadata
         env:
           RELEASE_TAG: ${{ needs.resolve-matrix.outputs.release_tag }}
-          RELEASE_NAME: ${{ needs.resolve-matrix.outputs.release_name }}
           RELEASE_VERSION: ${{ needs.resolve-matrix.outputs.release_version }}
         run: |
           echo "Release tag: ${RELEASE_TAG}"
-          echo "Release name: ${RELEASE_NAME}"
           echo "Release version: ${RELEASE_VERSION}"
 
   build:
@@ -220,15 +218,11 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         if: success()
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          repo_name: ha-china/HAOS-CN
+          repo_token: ${{ secrets.GH_PAT }}
           file: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.*
           file_glob: true
           tag: ${{ needs.resolve-matrix.outputs.release_tag }}
-          release_name: ${{ needs.resolve-matrix.outputs.release_name }}
-          body: |
-            Channel: stable
-            Version: ${{ needs.resolve-matrix.outputs.release_version }}
-            Automated build for Home Assistant OS full images.
           prerelease: false
           overwrite: true
           make_latest: true
