@@ -2,6 +2,24 @@ name: Build single channel images
 
 on:
   workflow_dispatch:
+    inputs:
+      board:
+        description: Select board to build
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - generic-aarch64
+          - generic-x86-64
+          - green
+          - ova
+          - orangepi-cm4
+          - panther-x2
+          - rpi3-64
+          - rpi4-64
+          - rpi5-64
+          - yellow
 
 permissions: {}
 
@@ -45,17 +63,19 @@ jobs:
         id: matrix
         env:
           CHANNEL: stable
+          SELECTED_BOARD: ${{ inputs.board }}
         run: |
           echo "::group::Generate build matrix for channel=${CHANNEL}"
           version_file="version-${CHANNEL}.json"
 
-          matrix_json="$(jq -c --arg release_repo "ha-china/HAOS-CN" '
+          matrix_json="$(jq -c --arg release_repo "ha-china/HAOS-CN" --arg selected_board "$SELECTED_BOARD" '
             [
               .hassos                                     # Board -> HAOS version map
               | to_entries[]                              # Iterate board/version pairs
               | .key as $board
               | .value as $version
               | select((($board | startswith("odroid-")) or ($board | startswith("khadas-")) or ($board == "ihost")) | not)
+              | select($selected_board == "all" or $board == $selected_board)
               | (
                   if $board == "ova"
                   then "https://github.com/\($release_repo)/releases/download/\($version)/haos_\($board)-\($version).qcow2.xz"
@@ -159,60 +179,6 @@ jobs:
             ls -la output/ || true
             exit 1
           fi
-
-      - name: Upload raw image
-        if: steps.formats.outputs.has_img == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.img.xz
-          if-no-files-found: error
-
-      - name: Upload QCOW2 image
-        if: steps.formats.outputs.has_qcow2 == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.qcow2.xz
-          if-no-files-found: error
-
-      - name: Upload VMDK image
-        if: steps.formats.outputs.has_vmdk == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.vmdk.zip
-          if-no-files-found: error
-
-      - name: Upload VDI image
-        if: steps.formats.outputs.has_vdi == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.vdi.zip
-          if-no-files-found: error
-
-      - name: Upload VHDX image
-        if: steps.formats.outputs.has_vhdx == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.vhdx.zip
-          if-no-files-found: error
-
-      - name: Upload OVA image
-        if: steps.formats.outputs.has_ova == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.ova
-          if-no-files-found: error
 
       - name: Upload successful outputs to GitHub release
         uses: svenstaro/upload-release-action@v2
