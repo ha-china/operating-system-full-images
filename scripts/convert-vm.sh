@@ -30,7 +30,7 @@ convert_vmdk() {
     local output="${OUTPUT_DIR}/${base_name}.vmdk"
 
     log "Converting to VMDK..."
-    qemu-img convert -f raw -O vmdk -o subformat=streamOptimized,adapter_type=lsilogic "$input" "$output"
+    qemu-img convert -f raw -O vmdk -o adapter_type=lsilogic "$input" "$output"
 
     log "Zipping VMDK..."
     pigz -q -K -S ".zip" "$output"
