@@ -252,7 +252,7 @@ get_spl_size() {
         khadas-vim3|odroid-c2|odroid-c4|odroid-n2)
             echo "8388608"   # 8M
             ;;
-        green|odroid-m1|odroid-m1s)
+        green|odroid-m1|odroid-m1s|orangepi-cm4|panther-x2)
             echo "16777216"  # 16M
             ;;
         *)
@@ -284,7 +284,7 @@ get_partition_table_type() {
         generic-aarch64|generic-x86-64|ova|rpi5-64)
             echo "gpt"
             ;;
-        green|rpi3-64|rpi4-64|odroid-m1|odroid-m1s|yellow)
+        green|rpi3-64|rpi4-64|odroid-m1|odroid-m1s|orangepi-cm4|panther-x2|yellow)
             echo "hybrid"
             ;;
         khadas-vim3|odroid-c2|odroid-c4|odroid-n2)
