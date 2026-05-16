@@ -55,7 +55,7 @@ jobs:
               | to_entries[]                              # Iterate board/version pairs
               | .key as $board
               | .value as $version
-              | select((($board | startswith("odroid-")) or ($board | startswith("khadas-"))) | not)
+              | select((($board | startswith("odroid-")) or ($board | startswith("khadas-")) or ($board == "ihost")) | not)
               | (
                   if $board == "ova"
                   then "https://github.com/\($release_repo)/releases/download/\($version)/haos_\($board)-\($version).qcow2.xz"

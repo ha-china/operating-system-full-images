@@ -207,6 +207,10 @@ get_machine() {
         generic-aarch64)
             echo "qemuarm-64"
             ;;
+        orangepi-cm4|panther-x2)
+            # These boards reuse the generic ARM64 Home Assistant core.
+            echo "qemuarm-64"
+            ;;
         odroid-m1s)
             echo "odroid-m1"
             ;;
