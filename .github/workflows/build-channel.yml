@@ -12,16 +12,11 @@ jobs:
     permissions: {}
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
-      build_date: ${{ steps.date.outputs.build_date }}
       release_version: ${{ steps.release.outputs.release_version }}
       release_tag: ${{ steps.release.outputs.release_tag }}
       release_name: ${{ steps.release.outputs.release_name }}
       prerelease: ${{ steps.release.outputs.prerelease }}
     steps:
-      - name: Compute UTC build date
-        id: date
-        run: echo "build_date=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
-
       - name: Download channel version metadata
         env:
           CHANNEL: stable
@@ -37,8 +32,8 @@ jobs:
           release_version=$(jq -r '[.hassos | to_entries[] | .value] | unique | join("+")' "$VERSION_FILE")
 
           echo "release_version=${release_version}" >> "$GITHUB_OUTPUT"
-          echo "release_tag=${CHANNEL}-${release_version}" >> "$GITHUB_OUTPUT"
-          echo "release_name=HAOS ${CHANNEL} full images - ${release_version}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${release_version}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${release_version}" >> "$GITHUB_OUTPUT"
 
           if [ "$CHANNEL" = "stable" ]; then
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
@@ -54,23 +49,18 @@ jobs:
           echo "::group::Generate build matrix for channel=${CHANNEL}"
           version_file="version-${CHANNEL}.json"
 
-          matrix_json="$(jq -c --arg os_name "haos" '
+          matrix_json="$(jq -c --arg release_repo "ha-china/HAOS-CN" '
             [
-              . as $root                                  # Keep full payload for .ota template
-              | .hassos                                   # Board -> HAOS version map
+              .hassos                                     # Board -> HAOS version map
               | to_entries[]                              # Iterate board/version pairs
               | .key as $board
               | .value as $version
               | select((($board | startswith("odroid-")) or ($board | startswith("khadas-"))) | not)
-              | (                                       # Get image URL from ota template, replacing placeholders
-                  $root.ota
-                  | gsub("\\{os_name\\}"; $os_name)     # Replace {os_name}
-                  | gsub("\\{board\\}"; $board)         # Replace {board} by entry key
-                  | gsub("\\{version\\}"; $version)     # Replace {version} by entry value
-                  | if $board == "ova"                  # Change OTA filename suffix to appropriate image suffix
-                    then gsub("raucb$"; "qcow2.xz")
-                    else gsub("raucb$"; "img.xz")
-                    end
+              | (
+                  if $board == "ova"
+                  then "https://github.com/\($release_repo)/releases/download/\($version)/haos_\($board)-\($version).qcow2.xz"
+                  else "https://github.com/\($release_repo)/releases/download/\($version)/haos_\($board)-\($version).img.xz"
+                  end
                 ) as $image_url
               | {                                       # Format matrix entry
                   board: $board,
@@ -104,12 +94,10 @@ jobs:
           RELEASE_TAG: ${{ needs.resolve-matrix.outputs.release_tag }}
           RELEASE_NAME: ${{ needs.resolve-matrix.outputs.release_name }}
           RELEASE_VERSION: ${{ needs.resolve-matrix.outputs.release_version }}
-          BUILD_DATE: ${{ needs.resolve-matrix.outputs.build_date }}
         run: |
           echo "Release tag: ${RELEASE_TAG}"
           echo "Release name: ${RELEASE_NAME}"
           echo "Release version: ${RELEASE_VERSION}"
-          echo "Build date: ${BUILD_DATE}"
 
   build:
     name: Build images for ${{ matrix.board }} version ${{ matrix.version }}
@@ -155,34 +143,10 @@ jobs:
           make docker-image
           make build IMAGE="${{ matrix.filename }}" CHANNEL="stable"
 
-      - name: Append UTC date suffix to outputs
-        env:
-          BUILD_DATE: ${{ needs.resolve-matrix.outputs.build_date }}
-        run: |
-          shopt -s nullglob
-
-          found=0
-          for src in output/haos_${{ matrix.board }}-${{ matrix.version }}-full*; do
-            found=1
-            base="$(basename "$src")"
-            dst="${base/-full/-full-${BUILD_DATE}}"
-            mv "$src" "output/$dst"
-          done
-
-          if [ "$found" -ne 1 ]; then
-            echo "No outputs found for board=${{ matrix.board }} version=${{ matrix.version }}" >&2
-            ls -la output || true
-            exit 1
-          fi
-
-          ls -lh output
-
       - name: Detect output formats
         id: formats
-        env:
-          BUILD_DATE: ${{ needs.resolve-matrix.outputs.build_date }}
         run: |
-          prefix="output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${BUILD_DATE}"
+          prefix="output/haos_${{ matrix.board }}-${{ matrix.version }}-full"
           found=0
           for ext in img.xz qcow2.xz vmdk.zip vdi.zip vhdx.zip ova; do
             key="${ext%%.*}"
@@ -203,8 +167,8 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.img.xz
+          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.img.xz
           if-no-files-found: error
 
       - name: Upload QCOW2 image
@@ -212,8 +176,8 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.qcow2.xz
+          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.qcow2.xz
           if-no-files-found: error
 
       - name: Upload VMDK image
@@ -221,8 +185,8 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vmdk.zip
+          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.vmdk.zip
           if-no-files-found: error
 
       - name: Upload VDI image
@@ -230,8 +194,8 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vdi.zip
+          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.vdi.zip
           if-no-files-found: error
 
       - name: Upload VHDX image
@@ -239,8 +203,8 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.vhdx.zip
+          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.vhdx.zip
           if-no-files-found: error
 
       - name: Upload OVA image
@@ -248,8 +212,8 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           archive: false
-          name: haos-${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}
-          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.ova
+          name: haos-${{ matrix.board }}-${{ matrix.version }}-full
+          path: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.ova
           if-no-files-found: error
 
       - name: Upload successful outputs to GitHub release
@@ -257,15 +221,13 @@ jobs:
         if: success()
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: output/haos_${{ matrix.board }}-${{ matrix.version }}-full-${{ needs.resolve-matrix.outputs.build_date }}.*
+          file: output/haos_${{ matrix.board }}-${{ matrix.version }}-full.*
           file_glob: true
           tag: ${{ needs.resolve-matrix.outputs.release_tag }}
           release_name: ${{ needs.resolve-matrix.outputs.release_name }}
           body: |
             Channel: stable
             Version: ${{ needs.resolve-matrix.outputs.release_version }}
-            Build date (UTC): ${{ needs.resolve-matrix.outputs.build_date }}
-
             Automated build for Home Assistant OS full images.
           prerelease: false
           overwrite: true
