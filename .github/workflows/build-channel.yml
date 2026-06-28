@@ -47,7 +47,7 @@ jobs:
           CHANNEL: stable
           VERSION_FILE: version-stable.json
         run: |
-          release_version=$(jq -r '[.hassos | to_entries[] | .value] | unique | join("+")' "$VERSION_FILE")
+          release_version=$(jq -r '.hassos.ova // ([.hassos | to_entries[] | .value] | unique | first)' "$VERSION_FILE")
 
           echo "release_version=${release_version}" >> "$GITHUB_OUTPUT"
           echo "release_tag=${release_version}" >> "$GITHUB_OUTPUT"
@@ -64,17 +64,19 @@ jobs:
         env:
           CHANNEL: stable
           SELECTED_BOARD: ${{ inputs.board }}
+          RELEASE_VERSION: ${{ steps.release.outputs.release_version }}
         run: |
           echo "::group::Generate build matrix for channel=${CHANNEL}"
           version_file="version-${CHANNEL}.json"
 
-          matrix_json="$(jq -c --arg release_repo "ha-china/HAOS-CN" --arg selected_board "$SELECTED_BOARD" '
+          matrix_json="$(jq -c --arg release_repo "ha-china/HAOS-CN" --arg selected_board "$SELECTED_BOARD" --arg release_version "$RELEASE_VERSION" '
             [
               .hassos                                     # Board -> HAOS version map
               | to_entries[]                              # Iterate board/version pairs
               | .key as $board
               | .value as $version
               | select((($board | startswith("odroid-")) or ($board | startswith("khadas-")) or ($board == "ihost")) | not)
+              | select($version == $release_version)
               | select($selected_board == "all" or $board == $selected_board)
               | (
                   if $board == "ova"
